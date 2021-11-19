@@ -33,6 +33,8 @@ public class PointSimulation : MonoBehaviour
 
     private void Start()
     {
+        isMoving = false;
+
         desirability = new float[numOfPoints];
 
         visitedIndexes = new bool[numOfPoints];
@@ -79,18 +81,36 @@ public class PointSimulation : MonoBehaviour
         ant.transform.position = new Vector3(ant.transform.position.x, ant.transform.position.y, -4.5f);
 
 
+        CalculateDesirability(0);
         DrawLines(0);
     }
 
 
 
-    private void DrawLines(int index)
+    private void CalculateDesirability(int index)
     {
         antPositionIndex = index;
 
         visitedIndexes[index] = true;
 
+        for (int i = 0; i < numOfPoints; i++)
+        {
+            float dst = distanceMatrix[index, i];
+
+            if (visitedIndexes[i])
+            {
+                dst = 0;
+            }
+
+            desirability[i] = dst == 0 ? 0 : Mathf.Pow(1 / dst, 5f);
+        }
+
+    }
+
+    private void DrawLines(int index)
+    {
         pointsParent.transform.GetChild(index).gameObject.GetComponent<Renderer>().material = visitedMat;
+
 
         for (int i = 0; i < linesParent.transform.childCount; i++)
         {
@@ -102,14 +122,7 @@ public class PointSimulation : MonoBehaviour
 
         for (int i = 0; i < numOfPoints; i++)
         {
-            float dst = distanceMatrix[index, i];
-
-            if (visitedIndexes[i])
-            {
-                dst = 0;
-            }
-
-            desirability[i] = dst == 0 ? 0 : Mathf.Pow(1 / dst, 1f);
+            
 
 
 
@@ -124,9 +137,15 @@ public class PointSimulation : MonoBehaviour
 
             
 
-            float lineWidth = desirability[i] * .08f;
-            lineRenderer.endWidth = lineWidth;
-            lineRenderer.startWidth = lineWidth;
+
+            lineRenderer.endWidth = .05f;
+            lineRenderer.startWidth = .05f;
+
+            float alphaValue = Mathf.Lerp(0, 1, desirability[i] / Mathf.Max(desirability));//desirability[i] * .08f;
+
+            lineRenderer.startColor = new Color(1, 1, 1, alphaValue);
+            lineRenderer.endColor = new Color(1, 1, 1, alphaValue);
+
         }
 
     }
@@ -196,6 +215,8 @@ public class PointSimulation : MonoBehaviour
 
 
         antPositionIndex = index;
+
+        CalculateDesirability(antPositionIndex);
         DrawLines(antPositionIndex);
 
         isMoving = false;
