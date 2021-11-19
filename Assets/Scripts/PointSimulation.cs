@@ -12,12 +12,30 @@ public class PointSimulation : MonoBehaviour
 
     [SerializeField] private int numOfPoints;
 
+    [SerializeField] private GameObject ant;
+
+    [SerializeField] private Material visitedMat;
+
     private Vector3[] points;
 
     private float[,] distanceMatrix;
 
+    private float[] desirability;
+
+    private bool[] visitedIndexes;
+
+    private GameObject linesParent;
+    private GameObject pointsParent;
+
+    private int antPositionIndex;
+
+    private bool isMoving;
+
     private void Start()
     {
+        desirability = new float[numOfPoints];
+
+        visitedIndexes = new bool[numOfPoints];
 
         points = new Vector3[numOfPoints];
 
@@ -26,7 +44,7 @@ public class PointSimulation : MonoBehaviour
         float yMin = quad.bounds.min.y + .5f;
         float yMax = quad.bounds.max.y - .5f;
 
-        GameObject pointsParent = new GameObject("Points");
+        pointsParent = new GameObject("Points");
 
         distanceMatrix = new float[numOfPoints,numOfPoints];
 
@@ -37,7 +55,7 @@ public class PointSimulation : MonoBehaviour
 
             Vector3 pos = new Vector3(xPos, yPos, -0.3f);
 
-            Instantiate(pointPrefab, pos, Quaternion.identity, pointsParent.transform);
+            Instantiate(pointPrefab, pos, Quaternion.identity, pointsParent.transform).name = "Point " + i;
 
             points[i] = pos;
         }
@@ -55,25 +73,132 @@ public class PointSimulation : MonoBehaviour
 
         }
 
-        GameObject lineParent = new GameObject("Lines");
-        for(int i = 1; i < numOfPoints; i++)
+        linesParent = new GameObject("Lines");
+
+        ant.transform.position = points[0];
+        ant.transform.position = new Vector3(ant.transform.position.x, ant.transform.position.y, -4.5f);
+
+
+        DrawLines(0);
+    }
+
+
+
+    private void DrawLines(int index)
+    {
+        antPositionIndex = index;
+
+        visitedIndexes[index] = true;
+
+        pointsParent.transform.GetChild(index).gameObject.GetComponent<Renderer>().material = visitedMat;
+
+        for (int i = 0; i < linesParent.transform.childCount; i++)
         {
-            GameObject line = Instantiate(linePrefab, Vector3.zero, Quaternion.identity, lineParent.transform);            
+            Destroy(linesParent.transform.GetChild(i).gameObject);
+
+        }
+
+        
+
+        for (int i = 0; i < numOfPoints; i++)
+        {
+            float dst = distanceMatrix[index, i];
+
+            if (visitedIndexes[i])
+            {
+                dst = 0;
+            }
+
+            desirability[i] = dst == 0 ? 0 : Mathf.Pow(1 / dst, 1f);
+
+
+
+            GameObject line = Instantiate(linePrefab, Vector3.zero, Quaternion.identity, linesParent.transform);
+            line.name = "Line " + i;
 
             LineRenderer lineRenderer = line.GetComponent<LineRenderer>();
-           
-            lineRenderer.SetPosition(0, points[0]);
+
+            lineRenderer.SetPosition(0, points[index]);
             lineRenderer.SetPosition(1, points[i]);
 
 
-            float dst = distanceMatrix[0, i];
-            float desirability = Mathf.Pow(1 / dst, 1.5f);
+            
 
-            float lineWidth = desirability * .08f;
+            float lineWidth = desirability[i] * .08f;
             lineRenderer.endWidth = lineWidth;
             lineRenderer.startWidth = lineWidth;
         }
 
+    }
+
+
+
+    private void Update()
+    {
+
+
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            if (isMoving)
+            {
+                return;
+            }
+            isMoving = true;
+
+            float randomRange = 0;
+
+            
+
+
+            for (int i = 0; i < desirability.Length; i++)
+            {
+                randomRange += desirability[i];
+            }
+
+            float random = Random.Range(0, randomRange);
+
+            for(int i = 0; i < desirability.Length; i++)
+            {
+                if(random < desirability[i])
+                {
+                    StartCoroutine(MoveAnt(i));
+                    break;
+                }
+
+                random -= desirability[i];
+            }
+
+
+
+        }
+
+    }
+
+    private IEnumerator MoveAnt(int index)
+    {
+
+        float elapsedTime = 0;
+
+        while(elapsedTime < .7f)
+        {
+
+            ant.transform.position = Vector3.Lerp(points[antPositionIndex], points[index], elapsedTime / .7f);
+
+            ant.transform.position = new Vector3(ant.transform.position.x, ant.transform.position.y, -4.5f);
+
+            elapsedTime += Time.deltaTime;
+
+            yield return null;
+        }
+
+        ant.transform.position = points[index];
+        ant.transform.position = new Vector3(ant.transform.position.x, ant.transform.position.y, -4.5f);
+
+
+        antPositionIndex = index;
+        DrawLines(antPositionIndex);
+
+        isMoving = false;
     }
 
 }
