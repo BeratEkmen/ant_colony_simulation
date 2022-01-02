@@ -39,6 +39,7 @@ public class PointSimulation : MonoBehaviour
     [SerializeField] private MeshRenderer _quad;
 
     [SerializeField] private int _numOfPoints;
+    [SerializeField] private int _numOfAntsPerIteration;
 
     [SerializeField] private GameObject _ant;
 
@@ -189,7 +190,6 @@ public class PointSimulation : MonoBehaviour
 
 
             float pheromoneStrength = _pheromoneTrails[index, i];
-            pheromoneStrength = _pheromoneTrails[index, i];
 
             if (Array.Exists(ant.visitedIndexes, element => element == i))
             {
@@ -199,7 +199,7 @@ public class PointSimulation : MonoBehaviour
 
 
 
-            ant.desirabilityArr[i] = dst == 0 ? 0 : Mathf.Pow(1 / dst, 4f) * Mathf.Pow(pheromoneStrength, 1f);
+            ant.desirabilityArr[i] = dst == 0 ? 0 : Mathf.Pow(1 / dst, 4f) * Mathf.Pow(pheromoneStrength, 1f) * 100f;
 
         }
 
@@ -207,13 +207,12 @@ public class PointSimulation : MonoBehaviour
     }
 
 
-
     private bool _isCalculating;
 
     private void Update()
     {
 
-        if(Input.GetKeyDown(KeyCode.Space) && !_isCalculating)
+        if(!_isCalculating && Input.GetKeyDown(KeyCode.Space))
         {
             _isCalculating = true;
 
@@ -225,7 +224,7 @@ public class PointSimulation : MonoBehaviour
             }
 
 
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < _numOfAntsPerIteration; i++)
             {
                 antList.Add(new Ant(_numOfPoints));
                 CalculateDesirability(antList[i], antList[i].antPositionIndex);
@@ -290,6 +289,8 @@ public class PointSimulation : MonoBehaviour
             {
                 randomRange += ant.desirabilityArr[i];
             }
+
+
 
             float random = UnityEngine.Random.Range(0, randomRange);
 
@@ -357,6 +358,9 @@ public class PointSimulation : MonoBehaviour
 
     private void DrawMinDistance(Ant ant)
     {
+
+        Debug.Log("asd");
+
         if (GameObject.Find("MinDistLines") != null)
         {
             DestroyImmediate(GameObject.Find("MinDistLines"));

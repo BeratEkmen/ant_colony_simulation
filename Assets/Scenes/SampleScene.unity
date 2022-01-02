@@ -253,6 +253,7 @@ MonoBehaviour:
   _linePrefab: {fileID: 6332184965689944543, guid: a27effd58ddfcb5488171ea0f50b6dcf, type: 3}
   _quad: {fileID: 1539672540}
   _numOfPoints: 20
+  _numOfAntsPerIteration: 10
   _ant: {fileID: 2079696002993162380, guid: 553f59b38c2a4bf459da02ca6e8838b3, type: 3}
   _visitedMat: {fileID: 2100000, guid: 195a1a3f5c69d514d8be54f8b57a367f, type: 2}
 --- !u!1 &1539672538
