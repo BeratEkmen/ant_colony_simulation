@@ -8,7 +8,9 @@ public class PointSimulation : MonoBehaviour
 
     private class Ant
     {
+        public bool antCalculating;
 
+        public bool isMoving;
         public int[] visitedIndexes;
         public float[] desirabilityArr;
         public int antPositionIndex;
@@ -20,7 +22,7 @@ public class PointSimulation : MonoBehaviour
             desirabilityArr = new float[numOfPoints];
             antPositionIndex = UnityEngine.Random.Range(0, numOfPoints);
             pathDistance = 0;
-
+            isMoving = false;
             for(int i = 0; i < visitedIndexes.Length; i++)
             {
                 visitedIndexes[i] = -1;
@@ -32,7 +34,7 @@ public class PointSimulation : MonoBehaviour
     }
 
 
-
+    [SerializeField] private GameObject _antPrefab;
     [SerializeField] private GameObject _pointPrefab;
     [SerializeField] private GameObject _linePrefab;
 
@@ -52,13 +54,13 @@ public class PointSimulation : MonoBehaviour
     private float[,] _pheromoneTrails;
     private float _minDist;
 
+    private bool _isCalculating;
 
-    private GameObject _linesParent;
+
     private GameObject _pointsParent;
+    private GameObject _antParent;
 
-
-    private bool _isMoving;
-
+    private GameObject _pheromoneLinesParent;
 
     private List<Ant> antList;
 
@@ -66,7 +68,25 @@ public class PointSimulation : MonoBehaviour
     {
         antList = new List<Ant>();
 
-        
+        _antParent = new GameObject("AntsParent");
+
+        for(int i = 0; i < _numOfAntsPerIteration; i++)
+        {
+
+            Instantiate(_antPrefab, _antParent.transform).SetActive(false);
+
+        }
+
+
+
+        SpawnPoints();
+        CalculateDistanceMatrix();
+
+
+
+
+
+
 
         _pheromoneTrails = new float[_numOfPoints, _numOfPoints];
 
@@ -83,16 +103,13 @@ public class PointSimulation : MonoBehaviour
 
         }
 
-        _isMoving = false;
+        _pheromoneLinesParent = new GameObject("PheromoneLinesParent");
+        InitializePheromoneLines();
 
         _minDist = -1;
         
 
-        SpawnPoints();
-        CalculateDistanceMatrix();
         
-
-        _linesParent = new GameObject("Lines");
 
         /*for(int i = 0; i < antList.Count; i++)
         {
@@ -109,6 +126,47 @@ public class PointSimulation : MonoBehaviour
         
 
 
+        
+    }
+
+    private void InitializePheromoneLines()
+    {
+
+        for(int i = 0; i < _numOfPoints; i++)
+        {
+            for (int j = i + 1; j < _numOfPoints; j++)
+            {
+
+                int fromIndex = i;
+                int toIndex = j;
+
+
+
+
+                GameObject line = Instantiate(_linePrefab, Vector3.zero, Quaternion.identity, _pheromoneLinesParent.transform);
+                line.name = "Line " + i + "," + j;
+
+                LineRenderer lineRenderer = line.GetComponent<LineRenderer>();
+
+                lineRenderer.SetPosition(0, _points[fromIndex]);
+                lineRenderer.SetPosition(1, _points[toIndex]);
+
+
+
+
+
+                lineRenderer.endWidth = .05f;
+                lineRenderer.startWidth = .05f;
+
+                float alphaValue = _pheromoneTrails[i, j];
+
+
+
+                lineRenderer.startColor = new Color(1, 1, 0, alphaValue);
+                lineRenderer.endColor = new Color(1, 1, 0, alphaValue);
+
+            }
+        }
         
     }
 
@@ -207,26 +265,38 @@ public class PointSimulation : MonoBehaviour
     }
 
 
-    private bool _isCalculating;
 
     private void Update()
     {
+
+
+
 
         if(!_isCalculating && Input.GetKeyDown(KeyCode.Space))
         {
             _isCalculating = true;
 
-            antList.Clear();
 
-            for(int i = 0; i < _linesParent.transform.childCount; i++)
+            for(int i = 0; i < _antParent.transform.childCount; i++)
             {
-                Destroy(_linesParent.transform.GetChild(i).gameObject);
+                for(int j = 0; j < _antParent.transform.GetChild(i).GetChild(1).childCount; j++)
+                {
+                    Destroy(_antParent.transform.GetChild(i).GetChild(1).GetChild(j).gameObject);
+
+                }
             }
+
+
+            antList.Clear();
 
 
             for (int i = 0; i < _numOfAntsPerIteration; i++)
             {
                 antList.Add(new Ant(_numOfPoints));
+
+                _antParent.transform.GetChild(i).GetChild(0).position = _points[antList[i].antPositionIndex] + Vector3.back * .1f;
+                _antParent.transform.GetChild(i).gameObject.SetActive(true);
+
                 CalculateDesirability(antList[i], antList[i].antPositionIndex);
 
             }
@@ -234,7 +304,7 @@ public class PointSimulation : MonoBehaviour
 
             for (int i = 0; i < antList.Count; i++)
             {
-                CalculateAntPathDistance(antList[i]);
+                StartCoroutine(CalculateAntPathDistance(antList[i], i));
 
             }
 
@@ -244,41 +314,220 @@ public class PointSimulation : MonoBehaviour
             }*/
 
 
-            for (int i = 0; i < _numOfPoints; i++)
+            
+        }
+
+        if (_isCalculating)
+        {
+            for(int i = 0; i < antList.Count; i++)
             {
-                for (int j = 0; j < _numOfPoints; j++)
+                if (antList[i].antCalculating)
                 {
 
-                    _pheromoneTrails[i, j] = _pheromoneTrails[i, j] * 0.3f;
-
-
+                    break;
                 }
+
+
+                if(i == antList.Count - 1)
+                {
+
+                    CalculationEnded();
+                }
+
 
             }
 
-            _isCalculating = false;
+
+
         }
 
+        UpdatePheromoneTrails();
 
 
-        
+        CheckMouseInput();
+
+
 
     }
 
-    private void CalculateAntPathDistance(Ant ant)
+    private void CheckMouseInput()
+    {
+        if (Input.GetMouseButton(0))
+        {
+
+            Ray mouseRay = Camera.main.ScreenPointToRay(Input.mousePosition);
+
+            RaycastHit hitInfo = new RaycastHit();
+
+            if(Physics.Raycast(mouseRay, out hitInfo))
+            {
+
+                if(hitInfo.transform.tag == "Ant")
+                {
+                    if (!_isCalculating)
+                    {
+                        for(int i = 0; i < _antParent.transform.childCount; i++)
+                        {
+                            if(_antParent.transform.GetChild(i).GetChild(0).gameObject != hitInfo.transform.gameObject)
+                            {
+
+                                _antParent.transform.GetChild(i).GetChild(1).gameObject.SetActive(false);
+                                _antParent.transform.GetChild(i).GetChild(1).transform.localPosition = Vector3.zero + Vector3.back * 5f;
+
+                            }
+                            else
+                            {
+                                _antParent.transform.GetChild(i).GetChild(1).gameObject.SetActive(true);
+                                //_antParent.transform.GetChild(i).transform.position += Vector3.forward * .1f;
+                                _antParent.transform.GetChild(i).GetChild(1).transform.localPosition = Vector3.zero + Vector3.back * 10f;
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+
+            }
+
+        }
+
+
+    }
+
+    private void UpdatePheromoneTrails()
     {
 
-        if (_isMoving)
+        int childIndex = 0;
+
+        for (int i = 0; i < _numOfPoints; i++)
         {
-            return;
+            for (int j = i + 1; j < _numOfPoints; j++)
+            {
+
+
+
+
+
+
+                GameObject line = _pheromoneLinesParent.transform.GetChild(childIndex).gameObject;
+
+                LineRenderer lineRenderer = line.GetComponent<LineRenderer>();
+
+                
+
+
+
+
+
+
+                float alphaValue = _pheromoneTrails[i, j];
+
+
+
+                lineRenderer.startColor = new Color(1, 1, 0, alphaValue);
+                lineRenderer.endColor = new Color(1, 1, 0, alphaValue);
+
+
+                childIndex++;
+            }
         }
+
+
+    }
+
+    private void CalculationEnded()
+    {
+
+
+
+
+
+
+        for (int k = 0; k < _numOfPoints; k++)
+        {
+            for (int j = 0; j < _numOfPoints; j++)
+            {
+
+                _pheromoneTrails[k, j] = _pheromoneTrails[k, j] * 0.3f;
+
+
+            }
+
+        }
+
+        //update pheromones
+
+        float maxPheromoneStrength = 0f;
+
+
+        for(int i = 0; i < antList.Count; i++)
+        {
+            Ant currAnt = antList[i];
+
+            float incAmount = Mathf.Lerp(.5f, 1f, _minDist / currAnt.pathDistance);
+
+            for(int j = 0; j < currAnt.visitedIndexes.Length; j++)
+            {
+
+                int fromIndex = currAnt.visitedIndexes[j];
+                int toIndex = currAnt.visitedIndexes[(j + 1) % _numOfPoints];
+
+
+
+                _pheromoneTrails[fromIndex, toIndex] += incAmount;
+                _pheromoneTrails[toIndex, fromIndex] = _pheromoneTrails[fromIndex, toIndex];
+
+                if(_pheromoneTrails[fromIndex, toIndex] > maxPheromoneStrength)
+                {
+                    maxPheromoneStrength = _pheromoneTrails[fromIndex, toIndex];
+                }
+            }
+
+        }
+
+
+
+        for (int k = 0; k < _numOfPoints; k++)
+        {
+            for (int j = 0; j < _numOfPoints; j++)
+            {
+
+                _pheromoneTrails[k, j] = _pheromoneTrails[k, j] / maxPheromoneStrength;
+
+
+            }
+
+        }
+
+        _isCalculating = false;
+    }
+
+
+    private IEnumerator CalculateAntPathDistance(Ant ant, int antIndex)
+    {
+
+        if (ant.isMoving)
+        {
+            yield return null;
+        }
+
+
+        ant.antCalculating = true;
+
 
         while(Mathf.Min(ant.visitedIndexes) == -1)
         {
-            
 
+            if (ant.isMoving)
+            {
+                yield return null;
+                continue;
+            }
 
-            //_isMoving = true;
+            ant.isMoving = true;
 
             float randomRange = 0;
 
@@ -301,7 +550,13 @@ public class PointSimulation : MonoBehaviour
                     //StartCoroutine(MoveAnt(i));
 
 
+                    int prevPointIndex = ant.antPositionIndex;
+
                     ant.antPositionIndex = i;
+
+                    StartCoroutine(MoveAntCoroutine(ant, antIndex, prevPointIndex));
+
+
 
                     CalculateDesirability(ant, ant.antPositionIndex);
 
@@ -350,16 +605,18 @@ public class PointSimulation : MonoBehaviour
         }
 
 
-
+        ant.antCalculating = false;
 
 
 
     }
+    
+    
+       
 
     private void DrawMinDistance(Ant ant)
     {
 
-        Debug.Log("asd");
 
         if (GameObject.Find("MinDistLines") != null)
         {
@@ -410,7 +667,7 @@ public class PointSimulation : MonoBehaviour
 
     }
 
-    private void DrawFinalRoad(Ant ant)
+    /*private void DrawFinalRoad(Ant ant)
     {
         
         
@@ -420,11 +677,11 @@ public class PointSimulation : MonoBehaviour
 
         
 
-        /*for (int i = 0; i < _linesParent.transform.childCount; i++)
+        for (int i = 0; i < _linesParent.transform.childCount; i++)
         {
             Destroy(_linesParent.transform.GetChild(i).gameObject);
 
-        }*/
+        }
 
         GameObject lineParent = new GameObject("FinalLine");
 
@@ -468,44 +725,51 @@ public class PointSimulation : MonoBehaviour
         }
 
 
-    }
+    }*/
 
-    private IEnumerator MoveAnt(Ant ant, int index)
+    private IEnumerator MoveAntCoroutine(Ant ant, int index, int prevPointIndex)
     {
 
-        /*float elapsedTime = 0;
+        float elapsedTime = 0;
 
-        float moveTime = .2f;
+        float moveTime = .1f;
+
+        GameObject antGO = _antParent.transform.GetChild(index).GetChild(0).gameObject;
+
+        Vector3 initPos = antGO.transform.position;
 
         while(elapsedTime < moveTime)
         {
 
-            _ant.transform.position = Vector3.Lerp(_points[ant1.antPositionIndex], _points[index], elapsedTime / moveTime);
+            antGO.transform.position = Vector3.Lerp(initPos, _points[ant.antPositionIndex], elapsedTime / moveTime);
 
-            _ant.transform.position = new Vector3(_ant.transform.position.x, _ant.transform.position.y, -4.5f);
+            antGO.transform.position += Vector3.back * .1f;
 
             elapsedTime += Time.deltaTime;
 
             yield return null;
-        }*/
+        }
 
-        _ant.transform.position = _points[index];
-        _ant.transform.position = new Vector3(_ant.transform.position.x, _ant.transform.position.y, -4.5f);
+        antGO.transform.position = _points[ant.antPositionIndex];
+        antGO.transform.position += Vector3.back * .1f;
 
 
-        ant.antPositionIndex = index;
 
-        CalculateDesirability(ant, ant.antPositionIndex);
+
+        //CalculateDesirability(ant, ant.antPositionIndex);
         //DrawLines(ant, ant.antPositionIndex);
 
-        _isMoving = false;
+        yield return new WaitForSeconds(.1f);
 
-        yield return null;
+        ant.isMoving = false;
+
+        DrawAntPath(ant, index, prevPointIndex);
+
+        //yield return null;
 
     }
-    private void DrawLines(Ant ant, int index)
+    private void DrawAntPath(Ant ant, int index, int prevPointIndex)
     {
-        _pointsParent.transform.GetChild(index).gameObject.GetComponent<Renderer>().material = _visitedMat;
 
 
         /*for (int i = 0; i < _linesParent.transform.childCount; i++)
@@ -515,33 +779,38 @@ public class PointSimulation : MonoBehaviour
         }*/
 
 
+        GameObject line = Instantiate(_linePrefab, Vector3.zero, Quaternion.identity, _antParent.transform.GetChild(index).GetChild(1).transform);
+        line.name = "Line ";
+        LineRenderer lineRenderer = line.GetComponent<LineRenderer>();
 
-        for (int i = 0; i < _numOfPoints; i++)
+        lineRenderer.SetPosition(0, _points[prevPointIndex]);
+        lineRenderer.SetPosition(1, _points[ant.antPositionIndex]);
+
+
+        lineRenderer.endWidth = .05f;
+        lineRenderer.startWidth = .05f;
+
+
+        lineRenderer.startColor = new Color(1, 0, 0, 1);
+        lineRenderer.endColor = new Color(1, 0, 0, 1);
+
+
+        if (_antParent.transform.GetChild(index).GetChild(1).childCount == _numOfPoints - 1)
         {
+            GameObject finalLine = Instantiate(_linePrefab, Vector3.zero, Quaternion.identity, _antParent.transform.GetChild(index).GetChild(1).transform);
+            line.name = "Line ";
+            LineRenderer finalLineRenderer = finalLine.GetComponent<LineRenderer>();
+
+            finalLineRenderer.SetPosition(0, _points[ant.antPositionIndex]);
+            finalLineRenderer.SetPosition(1, _points[ant.visitedIndexes[0]]);
 
 
+            finalLineRenderer.endWidth = .05f;
+            finalLineRenderer.startWidth = .05f;
 
 
-            GameObject line = Instantiate(_linePrefab, Vector3.zero, Quaternion.identity, _linesParent.transform);
-            line.name = "Line " + i;
-
-            LineRenderer lineRenderer = line.GetComponent<LineRenderer>();
-
-            lineRenderer.SetPosition(0, _points[index]);
-            lineRenderer.SetPosition(1, _points[i]);
-
-
-
-
-
-            lineRenderer.endWidth = .05f;
-            lineRenderer.startWidth = .05f;
-
-            float alphaValue = Mathf.Lerp(0, 1, ant.desirabilityArr[i] / Mathf.Max(ant.desirabilityArr));//desirability[i] * .08f;
-
-            lineRenderer.startColor = new Color(1, 1, 1, alphaValue);
-            lineRenderer.endColor = new Color(1, 1, 1, alphaValue);
-
+            finalLineRenderer.startColor = new Color(1, 0, 0, 1);
+            finalLineRenderer.endColor = new Color(1, 0, 0, 1);
         }
 
     }
