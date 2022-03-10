@@ -43,9 +43,9 @@ public class PointSimulation : MonoBehaviour
     [SerializeField] private int _numOfPoints;
     [SerializeField] private int _numOfAntsPerIteration;
 
-    [SerializeField] private GameObject _ant;
+    //[SerializeField] private GameObject _ant;
 
-    [SerializeField] private Material _visitedMat;
+    //[SerializeField] private Material _visitedMat;
 
 
     private Vector3[] _points;
