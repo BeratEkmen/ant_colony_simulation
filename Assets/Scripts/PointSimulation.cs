@@ -27,6 +27,7 @@ public class PointSimulation : MonoBehaviour
             {
                 visitedIndexes[i] = -1;
             }
+            
 
         }
 
@@ -41,6 +42,8 @@ public class PointSimulation : MonoBehaviour
     [SerializeField] private MeshRenderer _quad;
 
     [SerializeField] private int _numOfPoints;
+    
+    
     [SerializeField] private int _numOfAntsPerIteration;
 
     [SerializeField] private float _moveTime;
@@ -66,6 +69,141 @@ public class PointSimulation : MonoBehaviour
 
     private List<Ant> antList;
 
+    public void IncreaseAntCount()
+    {
+
+        if (_isCalculating)
+        {
+            return;
+            
+        }
+        
+        
+        _numOfAntsPerIteration++;
+        
+        Instantiate(_antPrefab, _antParent.transform).SetActive(false);
+
+    }
+
+    public void AddPoint()
+    {
+        if (_isCalculating)
+        {
+            return;
+        }
+
+        _numOfPoints++;
+
+
+        IncreasePointsArray();
+        
+        IncreaseDistanceMatrix();
+        
+        
+        float[,] temp = new float[_numOfPoints, _numOfPoints];
+
+
+        for (int i = 0; i < _numOfPoints; i++)
+        {
+            for (int j = 0; j < _numOfPoints; j++)
+            {
+
+                if (i == _numOfPoints - 1)
+                {
+                    temp[i, j] = 1;
+                    continue;
+                }
+
+                if (j == _numOfPoints - 1)
+                {
+                    
+                    temp[i, j] = 1;
+                    continue;
+                    
+                }
+                
+
+                temp[i, j] = _pheromoneTrails[i, j];
+            }
+
+        }
+
+        _pheromoneTrails = temp;
+        
+        
+        Destroy(_pheromoneLinesParent.gameObject);
+
+        _pheromoneLinesParent = new GameObject("PheromoneLinesParent");
+
+        InitializePheromoneLines();
+
+
+        _minDist = -1;
+    }
+
+    private void IncreaseDistanceMatrix()
+    {
+        
+        float[,] temp = new float[_numOfPoints, _numOfPoints];
+
+
+
+        for (int i = 0; i < _numOfPoints; i++)
+        {
+            for (int j = 0; j < _numOfPoints; j++)
+            {
+
+                float dst = Vector3.Distance(_points[i], _points[j]);
+
+                temp[i, j] = dst;
+
+            
+            }
+
+        }
+
+        _distanceMatrix = temp;
+
+
+        for (int i = 0; i < _numOfPoints; i++)
+        {
+            for (int j = 0; j < _numOfPoints; j++)
+            {
+                Debug.Log(_distanceMatrix[i, j]);
+            }
+        }
+    }
+    
+    private void IncreasePointsArray()
+    {
+        Vector3[] temp = new Vector3[_numOfPoints];
+
+        float xMin = _quad.bounds.min.x + .5f;
+        float xMax = _quad.bounds.max.x - .5f;
+        float yMin = _quad.bounds.min.y + .5f;
+        float yMax = _quad.bounds.max.y - .5f;
+
+        
+
+
+        for (int i = 0; i < _numOfPoints - 1; i++)
+        {
+            temp[i] = _points[i];
+        }
+
+        _points = temp;
+
+        float xPos = UnityEngine.Random.Range(xMin, xMax);
+        float yPos = UnityEngine.Random.Range(yMin, yMax);
+
+        Vector3 pos = new Vector3(xPos, yPos, -0.3f);
+
+        Instantiate(_pointPrefab, pos, Quaternion.identity, _pointsParent.transform).name = "Point " + _numOfPoints.ToString();
+
+        _points[_numOfPoints - 1] = pos; 
+        
+    }
+    
     private void Start()
     {
         antList = new List<Ant>();
@@ -110,24 +248,7 @@ public class PointSimulation : MonoBehaviour
 
         _minDist = -1;
         
-
         
-
-        /*for(int i = 0; i < antList.Count; i++)
-        {
-            GameObject newAnt = Instantiate(_ant, Vector3.zero, Quaternion.identity);
-
-            newAnt.transform.position = _points[antList[i].antPositionIndex];
-
-            newAnt.transform.position = new Vector3(newAnt.transform.position.x, newAnt.transform.position.y, -4.5f);
-
-
-            //DrawLines(antList[i], antList[i].antPositionIndex);
-        }*/
-
-        
-
-
         
     }
 
@@ -505,6 +626,8 @@ public class PointSimulation : MonoBehaviour
         }
 
         _isCalculating = false;
+        
+        
     }
 
 
@@ -513,6 +636,8 @@ public class PointSimulation : MonoBehaviour
 
         if (ant.isMoving)
         {
+            
+            
             yield return null;
         }
 
@@ -534,14 +659,17 @@ public class PointSimulation : MonoBehaviour
             float randomRange = 0;
 
 
-
+            Debug.Log("========");
 
             for (int i = 0; i < ant.desirabilityArr.Length; i++)
             {
                 randomRange += ant.desirabilityArr[i];
+                
+                
+                Debug.Log(ant.desirabilityArr[i]);
             }
 
-
+            
 
             float random = UnityEngine.Random.Range(0, randomRange);
 
@@ -669,65 +797,6 @@ public class PointSimulation : MonoBehaviour
 
     }
 
-    /*private void DrawFinalRoad(Ant ant)
-    {
-        
-        
-
-
-
-
-        
-
-        for (int i = 0; i < _linesParent.transform.childCount; i++)
-        {
-            Destroy(_linesParent.transform.GetChild(i).gameObject);
-
-        }
-
-        GameObject lineParent = new GameObject("FinalLine");
-
-
-        lineParent.transform.parent = _linesParent.transform;
-
-        for (int i = 0; i < _numOfPoints; i++)
-        {
-
-            int fromIndex = ant.visitedIndexes[i];
-            int toIndex = ant.visitedIndexes[(i + 1) % _numOfPoints];
-
-            //_pheromoneTrails[fromIndex, toIndex] = Mathf.Max(_pheromoneTrails[fromIndex, toIndex], Mathf.Lerp(0, 1, _minDist / ant.pathDistance));
-            _pheromoneTrails[fromIndex, toIndex] += 100f / ant.pathDistance;
-            _pheromoneTrails[toIndex, fromIndex] = _pheromoneTrails[fromIndex, toIndex];
-
-
-            GameObject line = Instantiate(_linePrefab, Vector3.zero, Quaternion.identity, lineParent.transform);
-            line.name = "Line " + i;
-
-            LineRenderer lineRenderer = line.GetComponent<LineRenderer>();
-
-            lineRenderer.SetPosition(0, _points[fromIndex]);
-            lineRenderer.SetPosition(1, _points[toIndex]);
-
-
-
-
-
-            lineRenderer.endWidth = .05f;
-            lineRenderer.startWidth = .05f;
-
-            float alphaValue = Mathf.Lerp(0, 1, _minDist / ant.pathDistance);
-
-            alphaValue = alphaValue == 1 ? 1 : alphaValue * .1f;
-
-
-            lineRenderer.startColor = new Color(1, 1, 1, alphaValue);
-            lineRenderer.endColor = new Color(1, 1, 1, alphaValue);
-
-        }
-
-
-    }*/
 
     private IEnumerator MoveAntCoroutine(Ant ant, int index, int prevPointIndex)
     {

@@ -83,5 +83,25 @@ public class PointSimulationButtons : MonoBehaviour
 
         }
     }
-   
+
+
+    public void AddAntButton()
+    {
+        
+        FindObjectOfType<PointSimulation>().IncreaseAntCount();
+        
+        
+    }
+
+
+
+
+    public void AddPointButton()
+    {
+        
+        
+        FindObjectOfType<PointSimulation>().AddPoint();
+
+        
+    }
 }
