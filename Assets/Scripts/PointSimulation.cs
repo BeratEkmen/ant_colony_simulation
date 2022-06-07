@@ -43,6 +43,8 @@ public class PointSimulation : MonoBehaviour
     [SerializeField] private int _numOfPoints;
     [SerializeField] private int _numOfAntsPerIteration;
 
+    [SerializeField] private float _moveTime;
+
     //[SerializeField] private GameObject _ant;
 
     //[SerializeField] private Material _visitedMat;
@@ -732,16 +734,15 @@ public class PointSimulation : MonoBehaviour
 
         float elapsedTime = 0;
 
-        float moveTime = .1f;
 
         GameObject antGO = _antParent.transform.GetChild(index).GetChild(0).gameObject;
 
         Vector3 initPos = antGO.transform.position;
 
-        while(elapsedTime < moveTime)
+        while(elapsedTime < _moveTime)
         {
 
-            antGO.transform.position = Vector3.Lerp(initPos, _points[ant.antPositionIndex], elapsedTime / moveTime);
+            antGO.transform.position = Vector3.Lerp(initPos, _points[ant.antPositionIndex], elapsedTime / _moveTime);
 
             antGO.transform.position += Vector3.back * .1f;
 
